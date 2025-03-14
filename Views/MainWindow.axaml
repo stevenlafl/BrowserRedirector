@@ -1,0 +1,246 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DefaultBrowser.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="using:DefaultBrowser.Models"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="DefaultBrowser.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Browser Redirector"
+        Width="800" Height="700"
+        MinWidth="600" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+        <Style Selector="TextBlock.header">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header with app description -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Browser Redirector" FontSize="24" FontWeight="Bold" Margin="0,0,0,5"/>
+            <TextBlock Text="Redirect URLs to specific browsers based on regular expression patterns" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- Main content area with browser mappings list and editor -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Browser mappings list -->
+            <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Margin="0,0,5,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="URL Pattern Rules" Classes="header" HorizontalAlignment="Center"/>
+
+                    <ListBox Grid.Row="1" 
+                             ItemsSource="{Binding BrowserMappings}"
+                             SelectedItem="{Binding SelectedMapping}"
+                             Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:BrowserMapping">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding Pattern}" Opacity="0.6" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="Browser:" Foreground="{DynamicResource SystemAccentColor}" FontSize="11"/>
+                                        <TextBlock Text="{Binding DisplayBrowserName}" 
+                                                   Foreground="{DynamicResource SystemAccentColor}" FontSize="11" FontStyle="Italic"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="+" Command="{Binding AddMappingCommand}" 
+                                ToolTip.Tip="Add new rule" FontWeight="Bold" Margin="2" Padding="8,2"/>
+                        <Button Content="-" Command="{Binding RemoveMappingCommand}" 
+                                IsEnabled="{Binding SelectedMapping, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                ToolTip.Tip="Remove selected rule" FontWeight="Bold" Margin="2" Padding="8,2"/>
+                        <Button Content="↑" Command="{Binding MoveUpCommand}"
+                                IsEnabled="{Binding SelectedMapping, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                ToolTip.Tip="Move rule up" FontWeight="Bold" Margin="2" Padding="8,2"/>
+                        <Button Content="↓" Command="{Binding MoveDownCommand}"
+                                IsEnabled="{Binding SelectedMapping, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                ToolTip.Tip="Move rule down" FontWeight="Bold" Margin="2" Padding="8,2"/>
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <!-- Mapping details editor -->
+            <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Margin="5,0,0,0">
+                <Grid IsEnabled="{Binding SelectedMapping, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Rule Details" Classes="header" HorizontalAlignment="Center"/>
+
+                    <ScrollViewer Grid.Row="1">
+                        <StackPanel Margin="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Name -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Rule Name:" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedMapping.Name}"/>
+
+                                <!-- URL Pattern -->
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="URL Pattern:" VerticalAlignment="Center"/>
+                                <Grid Grid.Row="1" Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding SelectedMapping.Pattern}"/>
+                                    <Button Grid.Column="1" Content="Test Pattern" Command="{Binding ValidatePatternCommand}"/>
+                                </Grid>
+
+                                <!-- Browser Path -->
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Browser:" VerticalAlignment="Center"/>
+                                <Grid Grid.Row="2" Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding SelectedMapping.BrowserPath}" 
+                                             IsReadOnly="{Binding !ShowMappingBrowseButton}"/>
+                                    <Button Grid.Column="1" Content="Browse..." 
+                                            Command="{Binding BrowseForBrowserAsync}" 
+                                            CommandParameter="mapping"
+                                            IsVisible="{Binding ShowMappingBrowseButton}"/>
+                                </Grid>
+
+                                <!-- Installed Browsers -->
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Select Browser:" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="3" Grid.Column="1" 
+                                          ItemsSource="{Binding InstalledBrowsers}"
+                                          SelectedItem="{Binding SelectedBrowser}"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:InstalledBrowser">
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- Help text -->
+                            <TextBlock Text="URL Pattern Help" FontWeight="Bold" Margin="0,20,0,5"/>
+                            <TextBlock TextWrapping="Wrap" Margin="5">
+                                Enter a regular expression pattern to match URLs. For example:
+                                <LineBreak/>
+                                - .*google\\.com.* - Matches any URL containing 'google.com'
+                                <LineBreak/>
+                                - .*\\.pdf$ - Matches URLs ending with '.pdf'
+                                <LineBreak/>
+                                - ^https://github\\.com.* - Matches URLs starting with 'https://github.com'
+                            </TextBlock>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Default browser setting -->
+        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Margin="0,10,0,10">
+            <StackPanel Margin="10">
+                <TextBlock Text="Default Browser" Classes="header"/>
+                <TextBlock Text="This browser will be used when no pattern matches" Margin="5"/>
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding DefaultBrowserPath}"
+                             IsReadOnly="{Binding !ShowDefaultBrowseButton}"/>
+                    <Button Grid.Column="1" Content="Browse..." 
+                            Command="{Binding BrowseForBrowserAsync}" 
+                            CommandParameter="default"
+                            IsVisible="{Binding ShowDefaultBrowseButton}"/>
+                </Grid>
+                
+                <ComboBox ItemsSource="{Binding InstalledBrowsers}"
+                          SelectedItem="{Binding SelectedDefaultBrowser}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:InstalledBrowser">
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <StackPanel Orientation="Horizontal" Margin="5,10,5,5">
+                    <CheckBox Content="Log browser redirects" IsChecked="{Binding LogRedirects}" Margin="0,0,15,0"/>
+                    <CheckBox Content="Show notifications" IsChecked="{Binding ShowRedirectNotifications}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Footer with buttons and status -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Content="Set as Default Browser" Command="{Binding SetAsDefaultBrowserCommand}"/>
+            
+            <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" 
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       Foreground="Green"/>
+            
+            <Button Grid.Column="2" Content="Save Settings" Command="{Binding SaveSettingsAsync}"/>
+        </Grid>
+    </Grid>
+</Window>

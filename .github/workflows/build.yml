@@ -1,0 +1,94 @@
+name: CI Build (Development)
+
+on:
+  push:
+    branches: [ master, main ]
+    tags-ignore: [ 'v*' ]  # Skip when pushing tags
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        platform: [
+          # Windows
+          win-x64,
+          win-x86,
+          win-arm64,
+          # macOS
+          osx-x64,
+          osx-arm64,
+          # Linux
+          linux-x64,
+          linux-arm,
+          linux-arm64
+        ]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies and workloads
+      run: |
+        dotnet restore BrowserRedirector.sln
+        dotnet workload install macos
+        dotnet workload restore
+    
+    - name: Build
+      run: |
+        PLATFORM="${{ matrix.platform }}"
+        OUTPUT_DIR="./bin/Publish/$PLATFORM"
+        
+        echo "Building for platform: $PLATFORM"
+        dotnet publish BrowserRedirector.csproj -c Release -r "$PLATFORM" --self-contained -o "$OUTPUT_DIR"
+        
+        # Show what was built
+        echo "Contents of output directory:"
+        ls -la "$OUTPUT_DIR"
+    
+    - name: Get short commit hash
+      id: git_hash
+      run: echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+    - name: Create Zip Archive
+      run: |
+        PLATFORM="${{ matrix.platform }}"
+        OUTPUT_DIR="./bin/Publish/$PLATFORM"
+        # Use git short hash for non-release builds
+        ZIP_NAME="BrowserRedirector-${{ steps.git_hash.outputs.SHORT_HASH }}-$PLATFORM.zip"
+        
+        if [ -d "$OUTPUT_DIR" ]; then
+          echo "Contents of $OUTPUT_DIR:"
+          ls -la "$OUTPUT_DIR"
+          
+          # Check if directory is empty
+          if [ "$(ls -A "$OUTPUT_DIR")" ]; then
+            echo "Creating zip archive for $PLATFORM..."
+            (cd "$OUTPUT_DIR" && zip -r "../../$ZIP_NAME" .)
+          else
+            echo "Error: Output directory is empty!"
+            exit 1
+          fi
+        else
+          echo "Error: Output directory does not exist!"
+          exit 1
+        fi
+    
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-${{ matrix.platform }}
+        path: ./bin/BrowserRedirector-${{ steps.git_hash.outputs.SHORT_HASH }}-${{ matrix.platform }}.zip
+        if-no-files-found: error

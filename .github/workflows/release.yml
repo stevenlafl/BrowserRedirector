@@ -1,0 +1,675 @@
+name: Build & Release (Tagged Version)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        platform: [
+          # Windows
+          win-x64,
+          win-x86,
+          win-arm64,
+          # macOS
+          osx-x64,
+          osx-arm64,
+          # Linux
+          linux-x64,
+          linux-arm,
+          linux-arm64
+        ]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies and workloads
+      run: |
+        dotnet restore BrowserRedirector.sln
+        dotnet workload install macos
+        dotnet workload install ios maui-ios # Additional workloads for complete macOS support
+        dotnet workload restore
+    
+    - name: Build
+      run: |
+        PLATFORM="${{ matrix.platform }}"
+        OUTPUT_DIR="./bin/Publish/$PLATFORM"
+        
+        echo "Building for platform: $PLATFORM"
+        dotnet publish BrowserRedirector.csproj -c Release -r "$PLATFORM" --self-contained -o "$OUTPUT_DIR"
+        
+        # Show what was built
+        echo "Contents of output directory:"
+        ls -la "$OUTPUT_DIR"
+    
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # Use 1.0.0 as default version if no tag is available
+        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+        else
+          VERSION="1.0.0"
+        fi
+        
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Using version: $VERSION"
+    
+    - name: Create Zip Archive
+      run: |
+        PLATFORM="${{ matrix.platform }}"
+        VERSION="${{ steps.extract_version.outputs.VERSION }}"
+        OUTPUT_DIR="./bin/Publish/$PLATFORM"
+        ZIP_NAME="BrowserRedirector-$VERSION-$PLATFORM.zip"
+        
+        if [ -d "$OUTPUT_DIR" ]; then
+          echo "Contents of $OUTPUT_DIR:"
+          ls -la "$OUTPUT_DIR"
+          
+          # Check if directory is empty
+          if [ "$(ls -A "$OUTPUT_DIR")" ]; then
+            echo "Creating zip archive for $PLATFORM version $VERSION..."
+            (cd "$OUTPUT_DIR" && zip -r "../../$ZIP_NAME" .)
+          else
+            echo "Error: Output directory is empty!"
+            exit 1
+          fi
+        else
+          echo "Error: Output directory does not exist!"
+          exit 1
+        fi
+    
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-${{ matrix.platform }}
+        path: ./bin/BrowserRedirector-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.platform }}.zip
+        if-no-files-found: error
+
+  build-windows-installer:
+    runs-on: windows-latest
+    needs: build
+    strategy:
+      matrix:
+        platform: [
+          win-x64,
+          win-x86,
+          win-arm64
+        ]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Download Windows ${{ matrix.platform }} build
+      uses: actions/download-artifact@v4
+      with:
+        name: BrowserRedirector-${{ matrix.platform }}
+        path: windows-${{ matrix.platform }}-files
+    
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # Get version from tag or use default
+        if ($env:GITHUB_REF_NAME -match '^v\d') {
+            $fullVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+        } else {
+            $fullVersion = '1.0.0'
+        }
+        
+        # Create MSI-compatible version by removing any pre-release suffix
+        if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
+            # Extract just the numeric part (1.0.0 from 1.0.0-pre)
+            $msiVersion = $matches[1]
+        } else {
+            # If somehow the version doesn't match the pattern, use it directly
+            $msiVersion = $fullVersion
+        }
+        
+        # Add missing parts if needed
+        $parts = $msiVersion.Split('.')
+        if ($parts.Count -eq 1) {
+            $msiVersion = "$msiVersion.0.0"
+        } elseif ($parts.Count -eq 2) {
+            $msiVersion = "$msiVersion.0"
+        }
+        
+        Write-Host "Using display version: $fullVersion"
+        Write-Host "Using MSI-compatible version: $msiVersion"
+        
+        "VERSION=$fullVersion" >> $env:GITHUB_OUTPUT
+        "MSI_VERSION=$msiVersion" >> $env:GITHUB_OUTPUT
+    
+    - name: Extract Windows build
+      run: |
+        # Create build directory
+        $platform = "${{ matrix.platform }}"
+        $version = "${{ steps.extract_version.outputs.VERSION }}"
+        New-Item -ItemType Directory -Path bin/Publish/$platform -Force | Out-Null
+        
+        # Check for the correct zip filename pattern
+        $zipPath = Get-ChildItem -Path windows-$platform-files/BrowserRedirector-*-$platform.zip | Select-Object -First 1 -ExpandProperty FullName
+        
+        if ([string]::IsNullOrEmpty($zipPath)) {
+            Write-Host "Error: Could not find zip file for $platform" -ForegroundColor Red
+            exit 1
+        }
+        
+        Write-Host "Found zip file: $zipPath"
+        
+        # Extract the zip
+        Write-Host "Extracting Windows $platform build..."
+        Expand-Archive -Path $zipPath -DestinationPath bin/Publish/$platform -Force
+        
+        # List extracted files
+        Write-Host "Extracted files for $platform`:" # Backtick escapes the colon
+        Get-ChildItem -Path bin/Publish/$platform -Recurse | Select-Object FullName
+    
+    - name: Setup WiX Toolset
+      run: |
+        # Download WiX Toolset
+        Write-Host "Downloading WiX Toolset..."
+        Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe" -OutFile "wix314.exe"
+        
+        # Install WiX Toolset silently
+        Write-Host "Installing WiX Toolset..."
+        Start-Process -FilePath "wix314.exe" -ArgumentList "/install","/quiet" -Wait
+        
+        # Verify installation
+        if (Test-Path "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe") {
+            Write-Host "WiX Toolset installed successfully"
+        } else {
+            Write-Host "WiX Toolset installation failed" -ForegroundColor Red
+            exit 1
+        }
+    
+    - name: Build Installer
+      run: |
+        # Platform info
+        $platform = "${{ matrix.platform }}"
+        Write-Host "Building installer for platform: $platform"
+        
+        # Create temp directory with platform-specific name
+        $tempDir = Join-Path $env:TEMP "BrowserRedirector-$platform"
+        if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $tempDir 'build') -Force | Out-Null
+        
+        Write-Host "Created temp directory: $tempDir"
+        
+        # Copy files to temp directory
+        Write-Host "Copying files to temp directory..."
+        Copy-Item -Path "bin/Publish/$platform/*" -Destination (Join-Path $tempDir 'build') -Recurse
+        
+        # Read the stored UpgradeCode from the file
+        $upgradeCode = Get-Content -Path windows/installer/upgrade-code.txt -Raw
+        Write-Host "Using upgrade code: $upgradeCode"
+        
+        # Get version from tag or use default
+        $version = "${{ steps.extract_version.outputs.VERSION }}"
+        $msiVersion = "${{ steps.extract_version.outputs.MSI_VERSION }}"
+        Write-Host "Building installer for version: $version (MSI version: $msiVersion) and platform: $platform"
+        
+        # Copy and update WXS file
+        $wxsContent = Get-Content -Path windows/installer/BrowserRedirector.wxs -Raw
+        $wxsContent = $wxsContent -replace "YOUR-GUID-HERE", $upgradeCode
+        $wxsContent = $wxsContent -replace 'Version="1.0.0"', ('Version="' + $msiVersion + '"')
+        
+        # Add architecture-specific define based on platform
+        $archDefine = if ($platform -eq "win-x64") {
+            '<?define IsX64 = "yes"?>'
+        } elseif ($platform -eq "win-x86") {
+            '<?define IsX86 = "yes"?>'
+        } else {
+            '<?define IsARM64 = "yes"?>'
+        }
+        
+        # Insert the architecture define after XML declaration
+        $wxsContent = $wxsContent -replace '(<\?xml.*\?>)', "`$1`n$archDefine"
+        
+        # Update the installer name to include the platform
+        $installFolderName = if ($platform -eq "win-x64") {
+            "Browser Redirector"
+        } elseif ($platform -eq "win-x86") {
+            "Browser Redirector (32-bit)"
+        } else {
+            "Browser Redirector ($platform)"
+        }
+        $wxsContent = $wxsContent -replace '<Directory Id="INSTALLFOLDER" Name="Browser Redirector" />', ('<Directory Id="INSTALLFOLDER" Name="' + $installFolderName + '" />')
+        
+        Set-Content -Path (Join-Path $tempDir 'BrowserRedirector.wxs') -Value $wxsContent
+        
+        # Navigate to temp directory
+        Set-Location $tempDir
+        
+        # Compile with WiX
+        Write-Host "Compiling installer..."
+        & "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe" BrowserRedirector.wxs -ext WixUIExtension -out build/BrowserRedirector.wixobj
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "WiX candle.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
+        
+        # Create installer name with platform
+        $installerName = "BrowserRedirector-$version-$platform-Setup.msi"
+        
+        # Link with WiX
+        Write-Host "Linking installer..."
+        & "C:\Program Files (x86)\WiX Toolset v3.14\bin\light.exe" -ext WixUIExtension -sice:ICE64 build/BrowserRedirector.wixobj -out $installerName
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "WiX light.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
+        
+        # Copy installer back to workspace
+        Write-Host "Copying installer to workspace..."
+        Copy-Item -Path $installerName -Destination "$env:GITHUB_WORKSPACE"
+        
+        # Create output directory in workspace
+        $outputDir = Join-Path $env:GITHUB_WORKSPACE "bin/Installer"
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        
+        # Copy installer to output directory
+        Copy-Item -Path $installerName -Destination $outputDir
+        
+        # Output success message
+        Write-Host "Installer created successfully: $installerName"
+    
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-Windows-Installer-${{ matrix.platform }}
+        path: BrowserRedirector-*-${{ matrix.platform }}-Setup.msi
+    
+    - name: Prepare executable for upload
+      run: |
+        # Variables for use in the script
+        $platform = "${{ matrix.platform }}"
+        $version = "${{ steps.extract_version.outputs.VERSION }}"
+        
+        # Use the exact path
+        $exePath = "bin/Publish/$platform/BrowserRedirector.exe"
+        
+        # Verify the path exists
+        if (Test-Path $exePath) {
+            Write-Host "Found executable at: $exePath"
+            Copy-Item -Path $exePath -Destination "$env:GITHUB_WORKSPACE/BrowserRedirector-$version-$platform.exe"
+            Write-Host "Created platform-specific executable: BrowserRedirector-$version-$platform.exe"
+        } else {
+            Write-Error "Could not find executable at expected location: $exePath"
+            Write-Host "Directory contents:"
+            Get-ChildItem -Path "bin/Publish/$platform" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "- $($_.Name)" }
+            exit 1
+        }
+    
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-Executable-${{ matrix.platform }}
+        path: BrowserRedirector-*-${{ matrix.platform }}.exe
+
+  build-linux-deb:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        platform: [
+          linux-x64,
+          linux-arm,
+          linux-arm64
+        ]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Download Linux ${{ matrix.platform }} build
+      uses: actions/download-artifact@v4
+      with:
+        name: BrowserRedirector-${{ matrix.platform }}
+        path: linux-${{ matrix.platform }}-files
+    
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # Get version from tag or use default
+        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+        else
+          VERSION="1.0.0"
+        fi
+        
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Using version: $VERSION"
+    
+    - name: Extract Linux build
+      run: |
+        # Create build directory
+        platform="${{ matrix.platform }}"
+        version="${{ steps.extract_version.outputs.VERSION }}"
+        mkdir -p bin/Publish/$platform
+        
+        # Find and extract the zip file
+        zipfile=$(find linux-$platform-files -name "*.zip" | head -1)
+        
+        if [ -z "$zipfile" ]; then
+          echo "Error: Could not find zip file for $platform"
+          exit 1
+        fi
+        
+        echo "Found zip file: $zipfile"
+        unzip "$zipfile" -d bin/Publish/$platform
+        
+        # List extracted files
+        echo "Extracted files for $platform:"
+        ls -la bin/Publish/$platform
+    
+    - name: Install Debian packaging tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y debhelper
+
+    - name: Create Debian package structure
+      run: |
+        platform="${{ matrix.platform }}"
+        version="${{ steps.extract_version.outputs.VERSION }}"
+        
+        # Map platform to Debian architecture
+        case "$platform" in
+          linux-x64)
+            DEB_ARCH="amd64"
+            ;;
+          linux-arm)
+            DEB_ARCH="armhf"
+            ;;
+          linux-arm64)
+            DEB_ARCH="arm64"
+            ;;
+          *)
+            echo "Unknown platform: $platform"
+            exit 1
+            ;;
+        esac
+        
+        echo "Using Debian architecture: $DEB_ARCH"
+        
+        # Create package directory structure
+        PKG_NAME="browserredirector"
+        PKG_DIR="$PKG_NAME-$version"
+        
+        mkdir -p $PKG_DIR/DEBIAN
+        mkdir -p $PKG_DIR/usr/bin
+        mkdir -p $PKG_DIR/usr/share/applications
+        mkdir -p $PKG_DIR/usr/share/pixmaps
+        
+        # Create control file
+        cat > $PKG_DIR/DEBIAN/control << EOF
+        Package: browserredirector
+        Version: $version
+        Section: web
+        Priority: optional
+        Architecture: $DEB_ARCH
+        Maintainer: Steven Linn <smlucf@gmail.com>
+        Description: Browser Redirector
+          A tool that redirects URLs to different browsers based on rules.
+        EOF
+        
+        # Copy application files
+        cp bin/Publish/$platform/BrowserRedirector $PKG_DIR/usr/bin/
+        chmod +x $PKG_DIR/usr/bin/BrowserRedirector
+        
+        # Create desktop file
+        cat > $PKG_DIR/usr/share/applications/browserredirector.desktop << EOF
+        [Desktop Entry]
+        Type=Application
+        Name=Browser Redirector
+        Comment=Redirect URLs to different browsers
+        Exec=/usr/bin/BrowserRedirector
+        Terminal=false
+        Categories=Network;WebBrowser;
+        EOF
+        
+        # Copy icon if available
+        if [ -f "bin/Publish/$platform/Assets/avalonia-logo.ico" ]; then
+          cp bin/Publish/$platform/Assets/avalonia-logo.ico $PKG_DIR/usr/share/pixmaps/browserredirector.ico
+        fi
+        
+        # Build the package
+        dpkg-deb --build $PKG_DIR
+        
+        # Rename to include platform
+        mv "${PKG_NAME}-${version}.deb" "BrowserRedirector-${version}-${platform}.deb"
+        
+        echo "Created Debian package: BrowserRedirector-${version}-${platform}.deb"
+    
+    - name: Upload Debian package
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-Debian-${{ matrix.platform }}
+        path: BrowserRedirector-*-${{ matrix.platform }}.deb
+        if-no-files-found: error
+
+  extract-macos-pkg:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        platform: [
+          osx-x64,
+          osx-arm64
+        ]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # Get version from tag or use default
+        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+        else
+          VERSION="1.0.0"
+        fi
+        
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Using version: $VERSION"
+    
+    - name: Download MacOS ${{ matrix.platform }} build
+      uses: actions/download-artifact@v4
+      with:
+        name: BrowserRedirector-${{ matrix.platform }}
+        path: macos-${{ matrix.platform }}-files
+    
+    - name: Extract MacOS build
+      run: |
+        # Find and extract the zip file
+        platform="${{ matrix.platform }}"
+        version="${{ steps.extract_version.outputs.VERSION }}"
+        zipfile=$(find macos-$platform-files -name "*.zip" | head -1)
+        
+        if [ -z "$zipfile" ]; then
+          echo "Error: Could not find zip file for $platform"
+          exit 1
+        fi
+        
+        echo "Found zip file: $zipfile"
+        
+        # Create directory for extraction
+        mkdir -p bin/Publish/$platform
+        
+        # Extract the zip
+        unzip -o "$zipfile" -d bin/Publish/$platform
+        
+        # Find the .pkg file
+        pkgfile=$(find bin/Publish/$platform -name "*.pkg" | head -1)
+        
+        if [ -z "$pkgfile" ]; then
+          echo "Error: Could not find .pkg file in extracted contents"
+          echo "Extracted files for $platform:"
+          ls -la bin/Publish/$platform
+          exit 1
+        fi
+        
+        echo "Found .pkg file: $pkgfile"
+        
+        # Copy the pkg file to a standard location with platform in the name
+        mkdir -p macos-pkg
+        cp "$pkgfile" "macos-pkg/BrowserRedirector-$version-$platform.pkg"
+        
+        echo "Extracted files for $platform:"
+        ls -la bin/Publish/$platform
+    
+    - name: Upload MacOS package
+      uses: actions/upload-artifact@v4
+      with:
+        name: BrowserRedirector-MacOS-Pkg-${{ matrix.platform }}
+        path: macos-pkg/BrowserRedirector-*-${{ matrix.platform }}.pkg
+        if-no-files-found: error
+  
+  release:
+    needs: [
+      build,
+      build-windows-installer,
+      build-linux-deb,
+      extract-macos-pkg
+    ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for tag comparison
+    
+    - name: Extract version from tag
+      id: extract_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Get the previous tag to compare with
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -z "$PREV_TAG" ]; then
+          # If no previous tag, list all commits
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
+        else
+          # List commits between previous tag and current tag
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse ${PREV_TAG}..HEAD)
+        fi
+        
+        # Save changelog to a file with Markdown formatting
+        cat > RELEASE_NOTES.md << EOF
+        # BrowserRedirector ${{ github.ref_name }}
+        
+        ## What's Changed
+        
+        ${CHANGELOG}
+        
+        ## Installation
+        
+        ### Windows
+        
+        **For full functionality (including default browser registration):**
+        
+        1. Download the MSI installer for your system architecture:
+           - `BrowserRedirector-${{ github.ref_name }}-win-x64-Setup.msi` - For 64-bit systems (most common)
+           - `BrowserRedirector-${{ github.ref_name }}-win-x86-Setup.msi` - For 32-bit systems
+           - `BrowserRedirector-${{ github.ref_name }}-win-arm64-Setup.msi` - For ARM64 systems
+        
+        2. Run the MSI installer and follow the installation prompts
+        
+        3. During installation, ensure the "Register as a browser option in Windows" option is selected
+        
+        **For portable use (without default browser capability):**
+        - Download the standalone executable for your architecture:
+           - `BrowserRedirector-${{ github.ref_name }}-win-x64.exe` - For 64-bit systems (most common)
+           - `BrowserRedirector-${{ github.ref_name }}-win-x86.exe` - For 32-bit systems
+           - `BrowserRedirector-${{ github.ref_name }}-win-arm64.exe` - For ARM64 systems
+        
+        ### macOS
+        
+        1. Download the appropriate installer package for your Mac:
+           - Intel Macs: `BrowserRedirector-${{ github.ref_name }}-osx-x64.pkg`
+           - Apple Silicon (M1/M2/etc.): `BrowserRedirector-${{ github.ref_name }}-osx-arm64.pkg`
+        
+        2. Double-click the .pkg file and follow the installation instructions
+        
+        ### Linux
+        
+        **Debian/Ubuntu users:**
+        
+        1. Download the appropriate .deb package for your system:
+           - `BrowserRedirector-${{ github.ref_name }}-linux-x64.deb` - For most desktop Linux (amd64)
+           - `BrowserRedirector-${{ github.ref_name }}-linux-arm.deb` - For 32-bit ARM (e.g., older Raspberry Pi)
+           - `BrowserRedirector-${{ github.ref_name }}-linux-arm64.deb` - For 64-bit ARM (e.g., newer Pi, ARM servers)
+        
+        2. Install with: `sudo dpkg -i BrowserRedirector-*.deb` (or use your package manager)
+        
+        **Other Linux distributions:**
+        
+        1. Download the appropriate .deb package for your architecture
+        
+        2. Install with: `sudo dpkg -i BrowserRedirector-*.deb` or your distribution's package manager
+        
+        ## Supported Platforms
+        
+        - Windows 10/11 (x64, x86, ARM64)
+        - macOS (Intel, Apple Silicon)
+        - Linux (x64, ARM, ARM64)
+        
+        ## Important Note for Windows Users
+        
+        **You must install using the MSI installer if you want to set Browser Redirector as your default browser.**
+        The standalone executable cannot register itself due to Windows security requirements.
+        EOF
+        
+        echo "release_notes_path=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: BrowserRedirector ${{ github.ref_name }}
+        draft: false
+        prerelease: ${{ contains(github.ref, '-pre') || contains(github.ref, '-rc') }}
+        body_path: ${{ steps.release_notes.outputs.release_notes_path }}
+        files: |
+          artifacts/BrowserRedirector-Windows-Installer-*/BrowserRedirector-*-Setup.msi
+          artifacts/BrowserRedirector-Executable-*/BrowserRedirector-*-*.exe
+          artifacts/BrowserRedirector-Debian-*/BrowserRedirector-*.deb
+          artifacts/BrowserRedirector-MacOS-Pkg-*/BrowserRedirector-*.pkg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

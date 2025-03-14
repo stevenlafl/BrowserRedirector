@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:ui="http://schemas.microsoft.com/wix/UIExtension">
+  <Product Id="*" Name="Browser Redirector" Language="1033" Version="1.0.0" 
+           Manufacturer="BrowserRedirector" UpgradeCode="B72CD137-77D1-4D63-A1E4-DD3D06AE6A79">
+    
+    <!-- Architecture-specific package settings -->
+    <?ifdef IsX64 ?>
+      <?if $(var.IsX64) = "yes" ?>
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />
+        <Condition Message="This installation package is only for 64-bit Windows systems. Please use the 32-bit installer for this system.">
+          <![CDATA[VersionNT64]]>
+        </Condition>
+      <?endif?>
+    <?endif?>
+    
+    <?ifdef IsX86 ?>
+      <?if $(var.IsX86) = "yes" ?>
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x86" />
+        <Condition Message="This installation package is only for 32-bit Windows systems. Please use the 64-bit installer for this system.">
+          <![CDATA[NOT VersionNT64]]>
+        </Condition>
+      <?endif?>
+    <?endif?>
+    
+    <?ifdef IsARM64 ?>
+      <?if $(var.IsARM64) = "yes" ?>
+        <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Platform="arm64" />
+        <Condition Message="This installation package is only for ARM64 Windows systems. Please use the x64 or x86 installer for this system.">
+          <![CDATA[ProcessorArchitecture = "ARM64"]]>
+        </Condition>
+      <?endif?>
+    <?endif?>
+    
+    <!-- Fallback if no architecture is defined -->
+    <?ifndef IsX64 ?>
+    <?ifndef IsX86 ?>
+    <?ifndef IsARM64 ?>
+        <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" />
+    <?endif?>
+    <?endif?>
+    <?endif?>
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- UI Configuration -->
+    <UI Id="WixUI_BrowserRedirector">
+      <UIRef Id="WixUI_InstallDir" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+      
+      <!-- Define custom dialogs -->
+      <Dialog Id="UserSettingsDialog" Width="370" Height="270" Title="Installation Options">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Installation Options" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose your installation preferences" />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        
+        <!-- Options section -->
+        <Control Id="OptionsLabel" Type="Text" X="20" Y="60" Width="290" Height="15" Text="Select your preferences:" />
+        <Control Id="RegisterBrowserCheckbox" Type="CheckBox" X="20" Y="80" Width="330" Height="17" Property="REGISTER_BROWSER" CheckBoxValue="1" Text="Register as a browser option in Windows" />
+        <Control Id="ExplanationText" Type="Text" X="20" Y="100" Width="330" Height="40" Text="This will allow Browser Redirector to be selectable as a default browser option in Windows settings. The application will handle URLs based on your defined patterns." />
+        
+        <!-- Navigation buttons -->
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+      
+      <Dialog Id="UserUninstallDialog" Width="370" Height="270" Title="Uninstall Options">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Uninstall Options" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose what to remove during uninstallation" />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        
+        <!-- Uninstall options section -->
+        <Control Id="OptionsLabel" Type="Text" X="20" Y="60" Width="290" Height="15" Text="Select items to remove:" />
+        <Control Id="RemoveAppDataCheckbox" Type="CheckBox" X="20" Y="80" Width="330" Height="17" Property="REMOVE_APP_DATA" CheckBoxValue="1" Text="Remove application data (settings, configurations)" />
+        <Control Id="ExplanationText" Type="Text" X="20" Y="100" Width="330" Height="40" Text="If unchecked, your settings will be left on your computer. You may want to keep your settings if you plan to reinstall the application later." />
+        
+        <!-- Navigation buttons -->
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+      
+      <!-- Define the installer UI flow -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="UserSettingsDialog" Order="4">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
+      <Publish Dialog="UserSettingsDialog" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1">1</Publish>
+      <Publish Dialog="UserSettingsDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+      
+      <!-- Custom dialog on uninstall -->
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="UserUninstallDialog">1</Publish>
+      <Publish Dialog="UserUninstallDialog" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
+      <Publish Dialog="UserUninstallDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      
+      <!-- Override VerifyReadyDlg Back button when uninstalling -->
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserUninstallDialog" Order="1">WixUI_InstallMode="Remove"</Publish>
+    </UI>
+    
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="REMOVE_APP_DATA" Value="1" />
+    <Property Id="REGISTER_BROWSER" Value="1" />
+    
+    <Feature Id="ProductFeature" Title="Browser Redirector" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="RegistryEntries" />
+      <ComponentRef Id="CleanupShortcuts" />
+    </Feature>
+    
+    <!-- Define conditional feature for removal of app data -->
+    <Feature Id="RemoveAppDataFeature" Title="Remove Application Data" Level="1" Display="hidden">
+      <Condition Level="0">REMOVE_APP_DATA = 0 AND Installed AND REMOVE = "ALL"</Condition>
+      <ComponentRef Id="CleanupAppData" />
+    </Feature>
+    
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Browser Redirector" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Browser Redirector" />
+      </Directory>
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="AppDataCompanyFolder" Name="BrowserRedirector">
+          <Directory Id="AppDataFolder" Name="Data" />
+        </Directory>
+      </Directory>
+    </Directory>
+    
+    <!-- Component to handle cleanup of start menu folder -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="CleanupShortcuts" Guid="*">
+        <!-- Shortcut cleanup: remove start menu folder during uninstall -->
+        <RemoveFolder Id="CleanupApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <!-- Registry key used as KeyPath for this component -->
+        <RegistryValue Root="HKCU" Key="Software\BrowserRedirector" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    
+    <!-- Component to handle cleanup of AppData folder -->
+    <DirectoryRef Id="AppDataCompanyFolder">
+      <Component Id="CleanupAppData" Guid="*">
+        <!-- AppData cleanup: remove application data folders during uninstall -->
+        <RemoveFolder Id="CleanupAppDataFolder" Directory="AppDataFolder" On="uninstall" />
+        <RemoveFolder Id="CleanupAppDataCompanyFolder" Directory="AppDataCompanyFolder" On="uninstall" />
+        <!-- Registry key used as KeyPath for this component -->
+        <RegistryValue Root="HKCU" Key="Software\BrowserRedirector" Name="AppDataCleaned" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Add all your application files here -->
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="BrowserRedirectorEXE" Source="BrowserRedirector.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" 
+                    Name="Browser Redirector" WorkingDirectory="INSTALLFOLDER" 
+                    Advertise="yes" />
+        </File>
+      </Component>
+      <!-- Add other files here as needed -->
+    </ComponentGroup>
+    
+    <ComponentGroup Id="RegistryEntries">
+      <!-- Browser Registration -->
+      <Component Id="BrowserRegistration" Guid="*" Directory="INSTALLFOLDER">
+        <Condition>REGISTER_BROWSER = 1</Condition>
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector">
+          <RegistryValue Type="string" Value="Browser Redirector" />
+          <RegistryValue Name="LocalizedString" Type="string" Value="Browser Redirector" />
+        </RegistryKey>
+        
+        <!-- Icon registration -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\DefaultIcon">
+          <RegistryValue Type="string" Value="[INSTALLFOLDER]BrowserRedirector.exe,0" />
+        </RegistryKey>
+        
+        <!-- Command registration -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]BrowserRedirector.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        
+        <!-- Capabilities registration -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\Capabilities">
+          <RegistryValue Name="ApplicationName" Type="string" Value="Browser Redirector" />
+          <RegistryValue Name="ApplicationDescription" Type="string" Value="A tool to redirect URLs to specific browsers based on regex patterns" />
+          <RegistryValue Name="ApplicationIcon" Type="string" Value="[INSTALLFOLDER]BrowserRedirector.exe,0" />
+        </RegistryKey>
+        
+        <!-- URL Associations -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\Capabilities\URLAssociations">
+          <RegistryValue Name="http" Type="string" Value="BrowserRedirectorURL" />
+          <RegistryValue Name="https" Type="string" Value="BrowserRedirectorURL" />
+        </RegistryKey>
+        
+        <!-- File Associations (for HTML files) -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\Capabilities\FileAssociations">
+          <RegistryValue Name=".htm" Type="string" Value="BrowserRedirectorHTML" />
+          <RegistryValue Name=".html" Type="string" Value="BrowserRedirectorHTML" />
+        </RegistryKey>
+        
+        <!-- Register with Default Programs -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\RegisteredApplications">
+          <RegistryValue Name="BrowserRedirector" Type="string" Value="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector\Capabilities" />
+        </RegistryKey>
+        
+        <!-- ProgID for HTML files -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorHTML">
+          <RegistryValue Type="string" Value="Browser Redirector HTML Document" />
+          <RegistryValue Name="FriendlyTypeName" Type="string" Value="Browser Redirector HTML Document" />
+        </RegistryKey>
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorHTML\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]BrowserRedirector.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        
+        <!-- ProgID for URLs -->
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorURL">
+          <RegistryValue Type="string" Value="Browser Redirector URL" />
+          <RegistryValue Name="FriendlyTypeName" Type="string" Value="Browser Redirector URL" />
+          <RegistryValue Name="URL Protocol" Type="string" Value="" />
+          <RegistryValue Name="EditFlags" Type="integer" Value="2" />
+        </RegistryKey>
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorURL\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]BrowserRedirector.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+      </Component>
+      
+      <!-- Base Registry Component - always installed even if browser registration is disabled -->
+      <Component Id="BaseRegistry" Guid="*" Directory="INSTALLFOLDER">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\BrowserRedirector">
+          <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+          <RegistryValue Name="Version" Type="string" Value="1.0.0" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+  </Product>
+</Wix>
