@@ -88,6 +88,10 @@
     <EnableCodeSigning>false</EnableCodeSigning>
     <PackageName>BrowserRedirector</PackageName>
     <MacOSDeploymentTarget>12.0</MacOSDeploymentTarget>
+    
+    <!-- Include license for macOS package -->
+    <PackageShowLicense>true</PackageShowLicense>
+    <PackageLicenseFile>$(MSBuildProjectDirectory)/LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <!-- Linux doesn't need special target platform identifier -->
@@ -97,6 +101,13 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <!-- Include license file for macOS package -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('osx'))">
+    <None Include="LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

@@ -35,6 +35,9 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
     
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="EULA.rtf" />
+    
     <!-- UI Configuration -->
     <UI Id="WixUI_BrowserRedirector">
       <UIRef Id="WixUI_InstallDir" />
@@ -82,6 +85,7 @@
       </Dialog>
       
       <!-- Define the installer UI flow -->
+      <!-- WixUI_InstallDir already defines the LicenseAgreementDlg to InstallDirDlg flow -->
       <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="UserSettingsDialog" Order="4">1</Publish>
       <Publish Dialog="UserSettingsDialog" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1">1</Publish>
       <Publish Dialog="UserSettingsDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
@@ -92,7 +96,8 @@
       <Publish Dialog="UserUninstallDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
       
       <!-- Override VerifyReadyDlg Back button when uninstalling -->
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserUninstallDialog" Order="1">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserUninstallDialog" Order="1">WixUI_InstallMode = "Remove"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserSettingsDialog" Order="2">WixUI_InstallMode = "InstallOrUpdate"</Publish>
     </UI>
     
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />

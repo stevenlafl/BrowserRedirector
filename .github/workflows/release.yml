@@ -219,6 +219,9 @@ jobs:
         Write-Host "Copying files to temp directory..."
         Copy-Item -Path "bin/Publish/$platform/*" -Destination (Join-Path $tempDir 'build') -Recurse
         
+        # Copy EULA file to temp directory
+        Copy-Item -Path "windows/installer/EULA.rtf" -Destination $tempDir
+        
         # Read the stored UpgradeCode from the file
         $upgradeCode = Get-Content -Path windows/installer/upgrade-code.txt -Raw
         Write-Host "Using upgrade code: $upgradeCode"
@@ -419,6 +422,7 @@ jobs:
         mkdir -p $PKG_DIR/usr/bin
         mkdir -p $PKG_DIR/usr/share/applications
         mkdir -p $PKG_DIR/usr/share/pixmaps
+        mkdir -p $PKG_DIR/usr/share/doc/$PKG_NAME
         
         # Create control file
         cat > $PKG_DIR/DEBIAN/control << EOF
@@ -432,6 +436,9 @@ jobs:
           A tool that redirects URLs to different browsers based on rules.
         EOF
         
+        # Copy license file from repository root
+        cp LICENSE $PKG_DIR/usr/share/doc/$PKG_NAME/copyright
+        
         # Copy application files
         cp bin/Publish/$platform/BrowserRedirector $PKG_DIR/usr/bin/
         chmod +x $PKG_DIR/usr/bin/BrowserRedirector
@@ -443,6 +450,7 @@ jobs:
         Name=Browser Redirector
         Comment=Redirect URLs to different browsers
         Exec=/usr/bin/BrowserRedirector
+        Icon=browserredirector
         Terminal=false
         Categories=Network;WebBrowser;
         EOF
