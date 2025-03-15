@@ -2,6 +2,8 @@
 
 A cross-platform application that lets you redirect URLs to specific browsers based on regular expression patterns.
 
+![image](https://github.com/user-attachments/assets/dc2dc0f2-2f6b-4f40-85ef-4593511006bc)
+
 ## Features
 
 - Works on Windows, macOS, and Linux
