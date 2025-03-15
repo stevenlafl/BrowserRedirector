@@ -107,6 +107,7 @@
   <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('osx'))">
     <None Include="LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PublishFolderType>Resources</PublishFolderType>
     </None>
   </ItemGroup>
 
