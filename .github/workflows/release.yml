@@ -230,29 +230,23 @@ jobs:
         
         # Copy and update WXS file
         $wxsContent = Get-Content -Path windows/installer/BrowserRedirector.wxs -Raw
-        $wxsContent = $wxsContent -replace "YOUR-GUID-HERE", $upgradeCode
+        $wxsContent = $wxsContent -replace 'UpgradeCode="[A-Z0-9-]*"', ("UpgradeCode=`"$upgradeCode`"")
         $wxsContent = $wxsContent -replace 'Version="1.0.0"', ('Version="' + $msiVersion + '"')
         
         # Add architecture-specific define based on platform
         $archDefine = if ($platform -eq "win-x64") {
-            '<?define IsX64 = "yes"?>'
+            '<?define IsX64 = "yes"?><?define IsX86 = "no"?><?define IsARM64 = "no"?>'
         } elseif ($platform -eq "win-x86") {
-            '<?define IsX86 = "yes"?>'
+            '<?define IsX64 = "no"?><?define IsX86 = "yes"?><?define IsARM64 = "no"?>'
         } else {
-            '<?define IsARM64 = "yes"?>'
+            '<?define IsX64 = "no"?><?define IsX86 = "no"?><?define IsARM64 = "yes"?>'
         }
         
         # Insert the architecture define after XML declaration
         $wxsContent = $wxsContent -replace '(<\?xml.*\?>)', "`$1`n$archDefine"
         
-        # Update the installer name to include the platform
-        $installFolderName = if ($platform -eq "win-x64") {
-            "Browser Redirector"
-        } elseif ($platform -eq "win-x86") {
-            "Browser Redirector (32-bit)"
-        } else {
-            "Browser Redirector ($platform)"
-        }
+        # Use the same folder name regardless of platform
+        $installFolderName = "Browser Redirector"
         $wxsContent = $wxsContent -replace '<Directory Id="INSTALLFOLDER" Name="Browser Redirector" />', ('<Directory Id="INSTALLFOLDER" Name="' + $installFolderName + '" />')
         
         Set-Content -Path (Join-Path $tempDir 'BrowserRedirector.wxs') -Value $wxsContent

@@ -8,27 +8,18 @@
     <?ifdef IsX64 ?>
       <?if $(var.IsX64) = "yes" ?>
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />
-        <Condition Message="This installation package is only for 64-bit Windows systems. Please use the 32-bit installer for this system.">
-          <![CDATA[VersionNT64]]>
-        </Condition>
       <?endif?>
     <?endif?>
     
     <?ifdef IsX86 ?>
       <?if $(var.IsX86) = "yes" ?>
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x86" />
-        <Condition Message="This installation package is only for 32-bit Windows systems. Please use the 64-bit installer for this system.">
-          <![CDATA[NOT VersionNT64]]>
-        </Condition>
       <?endif?>
     <?endif?>
     
     <?ifdef IsARM64 ?>
       <?if $(var.IsARM64) = "yes" ?>
         <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Platform="arm64" />
-        <Condition Message="This installation package is only for ARM64 Windows systems. Please use the x64 or x86 installer for this system.">
-          <![CDATA[ProcessorArchitecture = "ARM64"]]>
-        </Condition>
       <?endif?>
     <?endif?>
     
@@ -91,7 +82,7 @@
       </Dialog>
       
       <!-- Define the installer UI flow -->
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="UserSettingsDialog" Order="4">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="UserSettingsDialog" Order="4">1</Publish>
       <Publish Dialog="UserSettingsDialog" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1">1</Publish>
       <Publish Dialog="UserSettingsDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
       
@@ -101,7 +92,7 @@
       <Publish Dialog="UserUninstallDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
       
       <!-- Override VerifyReadyDlg Back button when uninstalling -->
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserUninstallDialog" Order="1">WixUI_InstallMode="Remove"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="UserUninstallDialog" Order="1">1</Publish>
     </UI>
     
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
@@ -111,22 +102,43 @@
     <Feature Id="ProductFeature" Title="Browser Redirector" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentGroupRef Id="RegistryEntries" />
+      <ComponentRef Id="CleanupInstallFolder" />
       <ComponentRef Id="CleanupShortcuts" />
-    </Feature>
-    
-    <!-- Define conditional feature for removal of app data -->
-    <Feature Id="RemoveAppDataFeature" Title="Remove Application Data" Level="1" Display="hidden">
-      <Condition Level="0">REMOVE_APP_DATA = 0 AND Installed AND REMOVE = "ALL"</Condition>
       <ComponentRef Id="CleanupAppData" />
     </Feature>
     
     <Directory Id="TARGETDIR" Name="SourceDir">
+      <!-- x64 Installer (Installs to Program Files) -->
+      <?ifdef IsX64 ?>
+      <?if $(var.IsX64) = "yes" ?>
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="Browser Redirector" />
+      </Directory>
+      <?endif?>
+      <?endif?>
+
+      <!-- x86 Installer (Installs to Program Files (x86) on x64, otherwise Program Files) -->
+      <?ifdef IsX86 ?>
+      <?if $(var.IsX86) = "yes" ?>
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Browser Redirector" />
       </Directory>
+      <?endif?>
+      <?endif?>
+
+      <!-- ARM64 Installer (Installs to Program Files) -->
+      <?ifdef IsARM64 ?>
+      <?if $(var.IsARM64) = "yes" ?>
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Browser Redirector" />
+      </Directory>
+      <?endif?>
+      <?endif?>
+
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="Browser Redirector" />
       </Directory>
+
       <Directory Id="LocalAppDataFolder">
         <Directory Id="AppDataCompanyFolder" Name="BrowserRedirector">
           <Directory Id="AppDataFolder" Name="Data" />
@@ -134,19 +146,29 @@
       </Directory>
     </Directory>
     
+    <!-- Component to handle cleanup of installation folder -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="CleanupInstallFolder" Guid="*" Win64="$(var.IsX64)">
+        <RemoveFile Id="RemoveAllFiles" Name="*.*" On="uninstall" />
+        <RemoveFolder Id="INSTALLFOLDER" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\BrowserRedirector" Name="RemovedAllFiles" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    
     <!-- Component to handle cleanup of start menu folder -->
     <DirectoryRef Id="ApplicationProgramsFolder">
-      <Component Id="CleanupShortcuts" Guid="*">
-        <!-- Shortcut cleanup: remove start menu folder during uninstall -->
-        <RemoveFolder Id="CleanupApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <Component Id="CleanupShortcuts" Guid="*" Win64="$(var.IsX64)">
+        <!-- Shortcut cleanup: remove all shortcuts and folder during uninstall -->
+        <RemoveFile Id="RemoveShortcutFiles" Name="*.*" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveAppFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
         <!-- Registry key used as KeyPath for this component -->
-        <RegistryValue Root="HKCU" Key="Software\BrowserRedirector" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\BrowserRedirector" Name="ShortcutsCleaned" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
     
     <!-- Component to handle cleanup of AppData folder -->
     <DirectoryRef Id="AppDataCompanyFolder">
-      <Component Id="CleanupAppData" Guid="*">
+      <Component Id="CleanupAppData" Guid="*" Win64="$(var.IsX64)">
         <!-- AppData cleanup: remove application data folders during uninstall -->
         <RemoveFolder Id="CleanupAppDataFolder" Directory="AppDataFolder" On="uninstall" />
         <RemoveFolder Id="CleanupAppDataCompanyFolder" Directory="AppDataCompanyFolder" On="uninstall" />
@@ -157,7 +179,7 @@
     
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <!-- Add all your application files here -->
-      <Component Id="MainExecutable" Guid="*">
+      <Component Id="MainExecutable" Guid="*" Win64="$(var.IsX64)">
         <File Id="BrowserRedirectorEXE" Source="BrowserRedirector.exe" KeyPath="yes">
           <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" 
                     Name="Browser Redirector" WorkingDirectory="INSTALLFOLDER" 
@@ -168,11 +190,26 @@
     </ComponentGroup>
     
     <ComponentGroup Id="RegistryEntries">
-      <!-- Browser Registration -->
-      <Component Id="BrowserRegistration" Guid="*" Directory="INSTALLFOLDER">
+      
+      <!-- This component is a special component that will ALWAYS be installed, guaranteeing
+           that the registry keys will be removed during uninstall even if the browser was never registered -->
+      <Component Id="CleanupRegistryKey" Guid="*" Directory="INSTALLFOLDER" Win64="$(var.IsX64)">
+        <RegistryValue Root="HKLM" Key="SOFTWARE\BrowserRedirector" Name="BrowserRegistryCleaned" Type="integer" Value="1" KeyPath="yes" />
+        <!-- These registry keys will be removed unconditionally during uninstall -->
+        <RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorHTML" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Classes\BrowserRedirectorURL" Action="removeOnUninstall" />
+
+        <!-- This will not work, see https://docs.firegiant.com/wix/schema/wxs/removeregistryvalue/ -->
+        <RemoveRegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="BrowserRedirector" />
+      </Component>
+
+      <!-- Browser Registration - with extra registry cleanup on uninstall -->
+      <Component Id="BrowserRegistration" Guid="*" Directory="INSTALLFOLDER" Win64="$(var.IsX64)">
         <Condition>REGISTER_BROWSER = 1</Condition>
+        
         <RegistryKey Root="HKLM" Key="SOFTWARE\Clients\StartMenuInternet\BrowserRedirector">
-          <RegistryValue Type="string" Value="Browser Redirector" />
+          <RegistryValue Type="string" Value="Browser Redirector" KeyPath="yes" />
           <RegistryValue Name="LocalizedString" Type="string" Value="Browser Redirector" />
         </RegistryKey>
         
@@ -230,14 +267,7 @@
           <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]BrowserRedirector.exe&quot; &quot;%1&quot;" />
         </RegistryKey>
       </Component>
-      
-      <!-- Base Registry Component - always installed even if browser registration is disabled -->
-      <Component Id="BaseRegistry" Guid="*" Directory="INSTALLFOLDER">
-        <RegistryKey Root="HKLM" Key="SOFTWARE\BrowserRedirector">
-          <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
-          <RegistryValue Name="Version" Type="string" Value="1.0.0" />
-        </RegistryKey>
-      </Component>
+
     </ComponentGroup>
   </Product>
 </Wix>
