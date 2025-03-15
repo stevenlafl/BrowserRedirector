@@ -11,17 +11,17 @@ jobs:
     strategy:
       matrix:
         platform: [
-          # Windows
-          win-x64,
-          win-x86,
-          win-arm64,
+          # # Windows
+          # win-x64,
+          # win-x86,
+          # win-arm64,
           # macOS
           osx-x64,
           osx-arm64,
-          # Linux
-          linux-x64,
-          linux-arm,
-          linux-arm64
+          # # Linux
+          # linux-x64,
+          # linux-arm,
+          # linux-arm64
         ]
     
     steps:
@@ -100,380 +100,380 @@ jobs:
         path: ./bin/BrowserRedirector-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.platform }}.zip
         if-no-files-found: error
 
-  build-windows-installer:
-    runs-on: windows-latest
-    needs: build
-    strategy:
-      matrix:
-        platform: [
-          win-x64,
-          win-x86,
-          win-arm64
-        ]
+  # build-windows-installer:
+  #   runs-on: windows-latest
+  #   needs: build
+  #   strategy:
+  #     matrix:
+  #       platform: [
+  #         win-x64,
+  #         win-x86,
+  #         win-arm64
+  #       ]
     
-    steps:
-    - uses: actions/checkout@v4
+  #   steps:
+  #   - uses: actions/checkout@v4
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0.x
+  #   - name: Setup .NET
+  #     uses: actions/setup-dotnet@v4
+  #     with:
+  #       dotnet-version: 9.0.x
     
-    - name: Download Windows ${{ matrix.platform }} build
-      uses: actions/download-artifact@v4
-      with:
-        name: BrowserRedirector-${{ matrix.platform }}
-        path: windows-${{ matrix.platform }}-files
+  #   - name: Download Windows ${{ matrix.platform }} build
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: BrowserRedirector-${{ matrix.platform }}
+  #       path: windows-${{ matrix.platform }}-files
     
-    - name: Extract version from tag
-      id: extract_version
-      run: |
-        # Get version from tag or use default
-        if ($env:GITHUB_REF_NAME -match '^v\d') {
-            $fullVersion = $env:GITHUB_REF_NAME.TrimStart('v')
-        } else {
-            $fullVersion = '1.0.0'
-        }
+  #   - name: Extract version from tag
+  #     id: extract_version
+  #     run: |
+  #       # Get version from tag or use default
+  #       if ($env:GITHUB_REF_NAME -match '^v\d') {
+  #           $fullVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+  #       } else {
+  #           $fullVersion = '1.0.0'
+  #       }
         
-        # Create MSI-compatible version by removing any pre-release suffix
-        if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
-            # Extract just the numeric part (1.0.0 from 1.0.0-pre)
-            $msiVersion = $matches[1]
-        } else {
-            # If somehow the version doesn't match the pattern, use it directly
-            $msiVersion = $fullVersion
-        }
+  #       # Create MSI-compatible version by removing any pre-release suffix
+  #       if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
+  #           # Extract just the numeric part (1.0.0 from 1.0.0-pre)
+  #           $msiVersion = $matches[1]
+  #       } else {
+  #           # If somehow the version doesn't match the pattern, use it directly
+  #           $msiVersion = $fullVersion
+  #       }
         
-        # Add missing parts if needed
-        $parts = $msiVersion.Split('.')
-        if ($parts.Count -eq 1) {
-            $msiVersion = "$msiVersion.0.0"
-        } elseif ($parts.Count -eq 2) {
-            $msiVersion = "$msiVersion.0"
-        }
+  #       # Add missing parts if needed
+  #       $parts = $msiVersion.Split('.')
+  #       if ($parts.Count -eq 1) {
+  #           $msiVersion = "$msiVersion.0.0"
+  #       } elseif ($parts.Count -eq 2) {
+  #           $msiVersion = "$msiVersion.0"
+  #       }
         
-        Write-Host "Using display version: $fullVersion"
-        Write-Host "Using MSI-compatible version: $msiVersion"
+  #       Write-Host "Using display version: $fullVersion"
+  #       Write-Host "Using MSI-compatible version: $msiVersion"
         
-        "VERSION=$fullVersion" >> $env:GITHUB_OUTPUT
-        "MSI_VERSION=$msiVersion" >> $env:GITHUB_OUTPUT
+  #       "VERSION=$fullVersion" >> $env:GITHUB_OUTPUT
+  #       "MSI_VERSION=$msiVersion" >> $env:GITHUB_OUTPUT
     
-    - name: Extract Windows build
-      run: |
-        # Create build directory
-        $platform = "${{ matrix.platform }}"
-        $version = "${{ steps.extract_version.outputs.VERSION }}"
-        New-Item -ItemType Directory -Path bin/Publish/$platform -Force | Out-Null
+  #   - name: Extract Windows build
+  #     run: |
+  #       # Create build directory
+  #       $platform = "${{ matrix.platform }}"
+  #       $version = "${{ steps.extract_version.outputs.VERSION }}"
+  #       New-Item -ItemType Directory -Path bin/Publish/$platform -Force | Out-Null
         
-        # Check for the correct zip filename pattern
-        $zipPath = Get-ChildItem -Path windows-$platform-files/BrowserRedirector-*-$platform.zip | Select-Object -First 1 -ExpandProperty FullName
+  #       # Check for the correct zip filename pattern
+  #       $zipPath = Get-ChildItem -Path windows-$platform-files/BrowserRedirector-*-$platform.zip | Select-Object -First 1 -ExpandProperty FullName
         
-        if ([string]::IsNullOrEmpty($zipPath)) {
-            Write-Host "Error: Could not find zip file for $platform" -ForegroundColor Red
-            exit 1
-        }
+  #       if ([string]::IsNullOrEmpty($zipPath)) {
+  #           Write-Host "Error: Could not find zip file for $platform" -ForegroundColor Red
+  #           exit 1
+  #       }
         
-        Write-Host "Found zip file: $zipPath"
+  #       Write-Host "Found zip file: $zipPath"
         
-        # Extract the zip
-        Write-Host "Extracting Windows $platform build..."
-        Expand-Archive -Path $zipPath -DestinationPath bin/Publish/$platform -Force
+  #       # Extract the zip
+  #       Write-Host "Extracting Windows $platform build..."
+  #       Expand-Archive -Path $zipPath -DestinationPath bin/Publish/$platform -Force
         
-        # List extracted files
-        Write-Host "Extracted files for $platform`:" # Backtick escapes the colon
-        Get-ChildItem -Path bin/Publish/$platform -Recurse | Select-Object FullName
+  #       # List extracted files
+  #       Write-Host "Extracted files for $platform`:" # Backtick escapes the colon
+  #       Get-ChildItem -Path bin/Publish/$platform -Recurse | Select-Object FullName
     
-    - name: Setup WiX Toolset
-      run: |
-        # Download WiX Toolset
-        Write-Host "Downloading WiX Toolset..."
-        Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe" -OutFile "wix314.exe"
+  #   - name: Setup WiX Toolset
+  #     run: |
+  #       # Download WiX Toolset
+  #       Write-Host "Downloading WiX Toolset..."
+  #       Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe" -OutFile "wix314.exe"
         
-        # Install WiX Toolset silently
-        Write-Host "Installing WiX Toolset..."
-        Start-Process -FilePath "wix314.exe" -ArgumentList "/install","/quiet" -Wait
+  #       # Install WiX Toolset silently
+  #       Write-Host "Installing WiX Toolset..."
+  #       Start-Process -FilePath "wix314.exe" -ArgumentList "/install","/quiet" -Wait
         
-        # Verify installation
-        if (Test-Path "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe") {
-            Write-Host "WiX Toolset installed successfully"
-        } else {
-            Write-Host "WiX Toolset installation failed" -ForegroundColor Red
-            exit 1
-        }
+  #       # Verify installation
+  #       if (Test-Path "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe") {
+  #           Write-Host "WiX Toolset installed successfully"
+  #       } else {
+  #           Write-Host "WiX Toolset installation failed" -ForegroundColor Red
+  #           exit 1
+  #       }
     
-    - name: Build Installer
-      run: |
-        # Platform info
-        $platform = "${{ matrix.platform }}"
-        Write-Host "Building installer for platform: $platform"
+  #   - name: Build Installer
+  #     run: |
+  #       # Platform info
+  #       $platform = "${{ matrix.platform }}"
+  #       Write-Host "Building installer for platform: $platform"
         
-        # Create temp directory with platform-specific name
-        $tempDir = Join-Path $env:TEMP "BrowserRedirector-$platform"
-        if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $tempDir 'build') -Force | Out-Null
+  #       # Create temp directory with platform-specific name
+  #       $tempDir = Join-Path $env:TEMP "BrowserRedirector-$platform"
+  #       if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
+  #       New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+  #       New-Item -ItemType Directory -Path (Join-Path $tempDir 'build') -Force | Out-Null
         
-        Write-Host "Created temp directory: $tempDir"
+  #       Write-Host "Created temp directory: $tempDir"
         
-        # Copy files to temp directory
-        Write-Host "Copying files to temp directory..."
-        Copy-Item -Path "bin/Publish/$platform/*" -Destination (Join-Path $tempDir 'build') -Recurse
+  #       # Copy files to temp directory
+  #       Write-Host "Copying files to temp directory..."
+  #       Copy-Item -Path "bin/Publish/$platform/*" -Destination (Join-Path $tempDir 'build') -Recurse
         
-        # Copy EULA file to temp directory
-        Copy-Item -Path "windows/installer/EULA.rtf" -Destination $tempDir
+  #       # Copy EULA file to temp directory
+  #       Copy-Item -Path "windows/installer/EULA.rtf" -Destination $tempDir
         
-        # Read the stored UpgradeCode from the file
-        $upgradeCode = Get-Content -Path windows/installer/upgrade-code.txt -Raw
-        Write-Host "Using upgrade code: $upgradeCode"
+  #       # Read the stored UpgradeCode from the file
+  #       $upgradeCode = Get-Content -Path windows/installer/upgrade-code.txt -Raw
+  #       Write-Host "Using upgrade code: $upgradeCode"
         
-        # Get version from tag or use default
-        $version = "${{ steps.extract_version.outputs.VERSION }}"
-        $msiVersion = "${{ steps.extract_version.outputs.MSI_VERSION }}"
-        Write-Host "Building installer for version: $version (MSI version: $msiVersion) and platform: $platform"
+  #       # Get version from tag or use default
+  #       $version = "${{ steps.extract_version.outputs.VERSION }}"
+  #       $msiVersion = "${{ steps.extract_version.outputs.MSI_VERSION }}"
+  #       Write-Host "Building installer for version: $version (MSI version: $msiVersion) and platform: $platform"
         
-        # Copy and update WXS file
-        $wxsContent = Get-Content -Path windows/installer/BrowserRedirector.wxs -Raw
-        $wxsContent = $wxsContent -replace 'UpgradeCode="[A-Z0-9-]*"', ("UpgradeCode=`"$upgradeCode`"")
-        $wxsContent = $wxsContent -replace 'Version="1.0.0"', ('Version="' + $msiVersion + '"')
+  #       # Copy and update WXS file
+  #       $wxsContent = Get-Content -Path windows/installer/BrowserRedirector.wxs -Raw
+  #       $wxsContent = $wxsContent -replace 'UpgradeCode="[A-Z0-9-]*"', ("UpgradeCode=`"$upgradeCode`"")
+  #       $wxsContent = $wxsContent -replace 'Version="1.0.0"', ('Version="' + $msiVersion + '"')
         
-        # Add architecture-specific define based on platform
-        $archDefine = if ($platform -eq "win-x64") {
-            '<?define IsX64 = "yes"?><?define IsX86 = "no"?><?define IsARM64 = "no"?>'
-        } elseif ($platform -eq "win-x86") {
-            '<?define IsX64 = "no"?><?define IsX86 = "yes"?><?define IsARM64 = "no"?>'
-        } else {
-            '<?define IsX64 = "no"?><?define IsX86 = "no"?><?define IsARM64 = "yes"?>'
-        }
+  #       # Add architecture-specific define based on platform
+  #       $archDefine = if ($platform -eq "win-x64") {
+  #           '<?define IsX64 = "yes"?><?define IsX86 = "no"?><?define IsARM64 = "no"?>'
+  #       } elseif ($platform -eq "win-x86") {
+  #           '<?define IsX64 = "no"?><?define IsX86 = "yes"?><?define IsARM64 = "no"?>'
+  #       } else {
+  #           '<?define IsX64 = "no"?><?define IsX86 = "no"?><?define IsARM64 = "yes"?>'
+  #       }
         
-        # Insert the architecture define after XML declaration
-        $wxsContent = $wxsContent -replace '(<\?xml.*\?>)', "`$1`n$archDefine"
+  #       # Insert the architecture define after XML declaration
+  #       $wxsContent = $wxsContent -replace '(<\?xml.*\?>)', "`$1`n$archDefine"
         
-        # Use the same folder name regardless of platform
-        $installFolderName = "Browser Redirector"
-        $wxsContent = $wxsContent -replace '<Directory Id="INSTALLFOLDER" Name="Browser Redirector" />', ('<Directory Id="INSTALLFOLDER" Name="' + $installFolderName + '" />')
+  #       # Use the same folder name regardless of platform
+  #       $installFolderName = "Browser Redirector"
+  #       $wxsContent = $wxsContent -replace '<Directory Id="INSTALLFOLDER" Name="Browser Redirector" />', ('<Directory Id="INSTALLFOLDER" Name="' + $installFolderName + '" />')
         
-        Set-Content -Path (Join-Path $tempDir 'BrowserRedirector.wxs') -Value $wxsContent
+  #       Set-Content -Path (Join-Path $tempDir 'BrowserRedirector.wxs') -Value $wxsContent
         
-        # Navigate to temp directory
-        Set-Location $tempDir
+  #       # Navigate to temp directory
+  #       Set-Location $tempDir
         
-        # Compile with WiX
-        Write-Host "Compiling installer..."
-        & "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe" BrowserRedirector.wxs -ext WixUIExtension -out build/BrowserRedirector.wixobj
+  #       # Compile with WiX
+  #       Write-Host "Compiling installer..."
+  #       & "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe" BrowserRedirector.wxs -ext WixUIExtension -out build/BrowserRedirector.wixobj
         
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "WiX candle.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-        }
+  #       if ($LASTEXITCODE -ne 0) {
+  #           Write-Host "WiX candle.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+  #           exit $LASTEXITCODE
+  #       }
         
-        # Create installer name with platform
-        $installerName = "BrowserRedirector-$version-$platform-Setup.msi"
+  #       # Create installer name with platform
+  #       $installerName = "BrowserRedirector-$version-$platform-Setup.msi"
         
-        # Link with WiX
-        Write-Host "Linking installer..."
-        & "C:\Program Files (x86)\WiX Toolset v3.14\bin\light.exe" -ext WixUIExtension -sice:ICE64 build/BrowserRedirector.wixobj -out $installerName
+  #       # Link with WiX
+  #       Write-Host "Linking installer..."
+  #       & "C:\Program Files (x86)\WiX Toolset v3.14\bin\light.exe" -ext WixUIExtension -sice:ICE64 build/BrowserRedirector.wixobj -out $installerName
         
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "WiX light.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-        }
+  #       if ($LASTEXITCODE -ne 0) {
+  #           Write-Host "WiX light.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+  #           exit $LASTEXITCODE
+  #       }
         
-        # Copy installer back to workspace
-        Write-Host "Copying installer to workspace..."
-        Copy-Item -Path $installerName -Destination "$env:GITHUB_WORKSPACE"
+  #       # Copy installer back to workspace
+  #       Write-Host "Copying installer to workspace..."
+  #       Copy-Item -Path $installerName -Destination "$env:GITHUB_WORKSPACE"
         
-        # Create output directory in workspace
-        $outputDir = Join-Path $env:GITHUB_WORKSPACE "bin/Installer"
-        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+  #       # Create output directory in workspace
+  #       $outputDir = Join-Path $env:GITHUB_WORKSPACE "bin/Installer"
+  #       New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
         
-        # Copy installer to output directory
-        Copy-Item -Path $installerName -Destination $outputDir
+  #       # Copy installer to output directory
+  #       Copy-Item -Path $installerName -Destination $outputDir
         
-        # Output success message
-        Write-Host "Installer created successfully: $installerName"
+  #       # Output success message
+  #       Write-Host "Installer created successfully: $installerName"
     
-    - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: BrowserRedirector-Windows-Installer-${{ matrix.platform }}
-        path: BrowserRedirector-*-${{ matrix.platform }}-Setup.msi
+  #   - name: Upload Installer Artifact
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: BrowserRedirector-Windows-Installer-${{ matrix.platform }}
+  #       path: BrowserRedirector-*-${{ matrix.platform }}-Setup.msi
     
-    - name: Prepare executable for upload
-      run: |
-        # Variables for use in the script
-        $platform = "${{ matrix.platform }}"
-        $version = "${{ steps.extract_version.outputs.VERSION }}"
+  #   - name: Prepare executable for upload
+  #     run: |
+  #       # Variables for use in the script
+  #       $platform = "${{ matrix.platform }}"
+  #       $version = "${{ steps.extract_version.outputs.VERSION }}"
         
-        # Use the exact path
-        $exePath = "bin/Publish/$platform/BrowserRedirector.exe"
+  #       # Use the exact path
+  #       $exePath = "bin/Publish/$platform/BrowserRedirector.exe"
         
-        # Verify the path exists
-        if (Test-Path $exePath) {
-            Write-Host "Found executable at: $exePath"
-            Copy-Item -Path $exePath -Destination "$env:GITHUB_WORKSPACE/BrowserRedirector-$version-$platform.exe"
-            Write-Host "Created platform-specific executable: BrowserRedirector-$version-$platform.exe"
-        } else {
-            Write-Error "Could not find executable at expected location: $exePath"
-            Write-Host "Directory contents:"
-            Get-ChildItem -Path "bin/Publish/$platform" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "- $($_.Name)" }
-            exit 1
-        }
+  #       # Verify the path exists
+  #       if (Test-Path $exePath) {
+  #           Write-Host "Found executable at: $exePath"
+  #           Copy-Item -Path $exePath -Destination "$env:GITHUB_WORKSPACE/BrowserRedirector-$version-$platform.exe"
+  #           Write-Host "Created platform-specific executable: BrowserRedirector-$version-$platform.exe"
+  #       } else {
+  #           Write-Error "Could not find executable at expected location: $exePath"
+  #           Write-Host "Directory contents:"
+  #           Get-ChildItem -Path "bin/Publish/$platform" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "- $($_.Name)" }
+  #           exit 1
+  #       }
     
-    - name: Upload executable artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: BrowserRedirector-Executable-${{ matrix.platform }}
-        path: BrowserRedirector-*-${{ matrix.platform }}.exe
+  #   - name: Upload executable artifact
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: BrowserRedirector-Executable-${{ matrix.platform }}
+  #       path: BrowserRedirector-*-${{ matrix.platform }}.exe
 
-  build-linux-deb:
-    runs-on: ubuntu-latest
-    needs: build
-    strategy:
-      matrix:
-        platform: [
-          linux-x64,
-          linux-arm,
-          linux-arm64
-        ]
+  # build-linux-deb:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   strategy:
+  #     matrix:
+  #       platform: [
+  #         linux-x64,
+  #         linux-arm,
+  #         linux-arm64
+  #       ]
     
-    steps:
-    - uses: actions/checkout@v4
+  #   steps:
+  #   - uses: actions/checkout@v4
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0.x
+  #   - name: Setup .NET
+  #     uses: actions/setup-dotnet@v4
+  #     with:
+  #       dotnet-version: 9.0.x
     
-    - name: Download Linux ${{ matrix.platform }} build
-      uses: actions/download-artifact@v4
-      with:
-        name: BrowserRedirector-${{ matrix.platform }}
-        path: linux-${{ matrix.platform }}-files
+  #   - name: Download Linux ${{ matrix.platform }} build
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: BrowserRedirector-${{ matrix.platform }}
+  #       path: linux-${{ matrix.platform }}-files
     
-    - name: Extract version from tag
-      id: extract_version
-      run: |
-        # Get version from tag or use default
-        if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
-          VERSION="${GITHUB_REF_NAME#v}"
-        else
-          VERSION="1.0.0"
-        fi
+  #   - name: Extract version from tag
+  #     id: extract_version
+  #     run: |
+  #       # Get version from tag or use default
+  #       if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+  #         VERSION="${GITHUB_REF_NAME#v}"
+  #       else
+  #         VERSION="1.0.0"
+  #       fi
         
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Using version: $VERSION"
+  #       echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+  #       echo "Using version: $VERSION"
     
-    - name: Extract Linux build
-      run: |
-        # Create build directory
-        platform="${{ matrix.platform }}"
-        version="${{ steps.extract_version.outputs.VERSION }}"
-        mkdir -p bin/Publish/$platform
+  #   - name: Extract Linux build
+  #     run: |
+  #       # Create build directory
+  #       platform="${{ matrix.platform }}"
+  #       version="${{ steps.extract_version.outputs.VERSION }}"
+  #       mkdir -p bin/Publish/$platform
         
-        # Find and extract the zip file
-        zipfile=$(find linux-$platform-files -name "*.zip" | head -1)
+  #       # Find and extract the zip file
+  #       zipfile=$(find linux-$platform-files -name "*.zip" | head -1)
         
-        if [ -z "$zipfile" ]; then
-          echo "Error: Could not find zip file for $platform"
-          exit 1
-        fi
+  #       if [ -z "$zipfile" ]; then
+  #         echo "Error: Could not find zip file for $platform"
+  #         exit 1
+  #       fi
         
-        echo "Found zip file: $zipfile"
-        unzip "$zipfile" -d bin/Publish/$platform
+  #       echo "Found zip file: $zipfile"
+  #       unzip "$zipfile" -d bin/Publish/$platform
         
-        # List extracted files
-        echo "Extracted files for $platform:"
-        ls -la bin/Publish/$platform
+  #       # List extracted files
+  #       echo "Extracted files for $platform:"
+  #       ls -la bin/Publish/$platform
     
-    - name: Install Debian packaging tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y debhelper
+  #   - name: Install Debian packaging tools
+  #     run: |
+  #       sudo apt-get update
+  #       sudo apt-get install -y debhelper
 
-    - name: Create Debian package structure
-      run: |
-        platform="${{ matrix.platform }}"
-        version="${{ steps.extract_version.outputs.VERSION }}"
+  #   - name: Create Debian package structure
+  #     run: |
+  #       platform="${{ matrix.platform }}"
+  #       version="${{ steps.extract_version.outputs.VERSION }}"
         
-        # Map platform to Debian architecture
-        case "$platform" in
-          linux-x64)
-            DEB_ARCH="amd64"
-            ;;
-          linux-arm)
-            DEB_ARCH="armhf"
-            ;;
-          linux-arm64)
-            DEB_ARCH="arm64"
-            ;;
-          *)
-            echo "Unknown platform: $platform"
-            exit 1
-            ;;
-        esac
+  #       # Map platform to Debian architecture
+  #       case "$platform" in
+  #         linux-x64)
+  #           DEB_ARCH="amd64"
+  #           ;;
+  #         linux-arm)
+  #           DEB_ARCH="armhf"
+  #           ;;
+  #         linux-arm64)
+  #           DEB_ARCH="arm64"
+  #           ;;
+  #         *)
+  #           echo "Unknown platform: $platform"
+  #           exit 1
+  #           ;;
+  #       esac
         
-        echo "Using Debian architecture: $DEB_ARCH"
+  #       echo "Using Debian architecture: $DEB_ARCH"
         
-        # Create package directory structure
-        PKG_NAME="browserredirector"
-        PKG_DIR="$PKG_NAME-$version"
+  #       # Create package directory structure
+  #       PKG_NAME="browserredirector"
+  #       PKG_DIR="$PKG_NAME-$version"
         
-        mkdir -p $PKG_DIR/DEBIAN
-        mkdir -p $PKG_DIR/usr/bin
-        mkdir -p $PKG_DIR/usr/share/applications
-        mkdir -p $PKG_DIR/usr/share/pixmaps
-        mkdir -p $PKG_DIR/usr/share/doc/$PKG_NAME
+  #       mkdir -p $PKG_DIR/DEBIAN
+  #       mkdir -p $PKG_DIR/usr/bin
+  #       mkdir -p $PKG_DIR/usr/share/applications
+  #       mkdir -p $PKG_DIR/usr/share/pixmaps
+  #       mkdir -p $PKG_DIR/usr/share/doc/$PKG_NAME
         
-        # Create control file
-        cat > $PKG_DIR/DEBIAN/control << EOF
-        Package: browserredirector
-        Version: $version
-        Section: web
-        Priority: optional
-        Architecture: $DEB_ARCH
-        Maintainer: Steven Linn <smlucf@gmail.com>
-        Description: Browser Redirector
-          A tool that redirects URLs to different browsers based on rules.
-        EOF
+  #       # Create control file
+  #       cat > $PKG_DIR/DEBIAN/control << EOF
+  #       Package: browserredirector
+  #       Version: $version
+  #       Section: web
+  #       Priority: optional
+  #       Architecture: $DEB_ARCH
+  #       Maintainer: Steven Linn <smlucf@gmail.com>
+  #       Description: Browser Redirector
+  #         A tool that redirects URLs to different browsers based on rules.
+  #       EOF
         
-        # Copy license file from repository root
-        cp LICENSE $PKG_DIR/usr/share/doc/$PKG_NAME/copyright
+  #       # Copy license file from repository root
+  #       cp LICENSE $PKG_DIR/usr/share/doc/$PKG_NAME/copyright
         
-        # Copy application files
-        cp bin/Publish/$platform/BrowserRedirector $PKG_DIR/usr/bin/
-        chmod +x $PKG_DIR/usr/bin/BrowserRedirector
+  #       # Copy application files
+  #       cp bin/Publish/$platform/BrowserRedirector $PKG_DIR/usr/bin/
+  #       chmod +x $PKG_DIR/usr/bin/BrowserRedirector
         
-        # Create desktop file
-        cat > $PKG_DIR/usr/share/applications/browserredirector.desktop << EOF
-        [Desktop Entry]
-        Type=Application
-        Name=Browser Redirector
-        Comment=Redirect URLs to different browsers
-        Exec=/usr/bin/BrowserRedirector
-        Icon=browserredirector
-        Terminal=false
-        Categories=Network;WebBrowser;
-        EOF
+  #       # Create desktop file
+  #       cat > $PKG_DIR/usr/share/applications/browserredirector.desktop << EOF
+  #       [Desktop Entry]
+  #       Type=Application
+  #       Name=Browser Redirector
+  #       Comment=Redirect URLs to different browsers
+  #       Exec=/usr/bin/BrowserRedirector
+  #       Icon=browserredirector
+  #       Terminal=false
+  #       Categories=Network;WebBrowser;
+  #       EOF
         
-        # Copy icon if available
-        if [ -f "bin/Publish/$platform/Assets/avalonia-logo.ico" ]; then
-          cp bin/Publish/$platform/Assets/avalonia-logo.ico $PKG_DIR/usr/share/pixmaps/browserredirector.ico
-        fi
+  #       # Copy icon if available
+  #       if [ -f "bin/Publish/$platform/Assets/avalonia-logo.ico" ]; then
+  #         cp bin/Publish/$platform/Assets/avalonia-logo.ico $PKG_DIR/usr/share/pixmaps/browserredirector.ico
+  #       fi
         
-        # Build the package
-        dpkg-deb --build $PKG_DIR
+  #       # Build the package
+  #       dpkg-deb --build $PKG_DIR
         
-        # Rename to include platform
-        mv "${PKG_NAME}-${version}.deb" "BrowserRedirector-${version}-${platform}.deb"
+  #       # Rename to include platform
+  #       mv "${PKG_NAME}-${version}.deb" "BrowserRedirector-${version}-${platform}.deb"
         
-        echo "Created Debian package: BrowserRedirector-${version}-${platform}.deb"
+  #       echo "Created Debian package: BrowserRedirector-${version}-${platform}.deb"
     
-    - name: Upload Debian package
-      uses: actions/upload-artifact@v4
-      with:
-        name: BrowserRedirector-Debian-${{ matrix.platform }}
-        path: BrowserRedirector-*-${{ matrix.platform }}.deb
-        if-no-files-found: error
+  #   - name: Upload Debian package
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: BrowserRedirector-Debian-${{ matrix.platform }}
+  #       path: BrowserRedirector-*-${{ matrix.platform }}.deb
+  #       if-no-files-found: error
 
   extract-macos-pkg:
     runs-on: ubuntu-latest
@@ -556,8 +556,8 @@ jobs:
   release:
     needs: [
       build,
-      build-windows-installer,
-      build-linux-deb,
+      # build-windows-installer,
+      # build-linux-deb,
       extract-macos-pkg
     ]
     runs-on: ubuntu-latest

@@ -105,10 +105,12 @@
 
   <!-- Include license file for macOS package -->
   <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('osx'))">
-    <None Include="LICENSE">
+    <Content Include="LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <PublishFolderType>Resources</PublishFolderType>
-    </None>
+      <Link>Contents\LICENSE</Link>
+      <LogicalName>LICENSE</LogicalName>
+      <Visible>false</Visible>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
