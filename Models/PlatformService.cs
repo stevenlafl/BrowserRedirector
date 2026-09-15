@@ -352,12 +352,13 @@ Categories=Network;WebBrowser;
             {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
+                    // ArgumentList quotes the URL for us, so file:// paths with spaces survive
                     var psi = new ProcessStartInfo
                     {
                         FileName = browserPath,
-                        Arguments = url,
                         UseShellExecute = true
                     };
+                    psi.ArgumentList.Add(url);
                     Process.Start(psi);
                     return true;
                 }

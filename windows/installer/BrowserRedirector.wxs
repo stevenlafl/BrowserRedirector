@@ -34,7 +34,11 @@
     
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
-    
+
+    <!-- Icon for the Start Menu shortcut and Add/Remove Programs, taken from the exe's embedded icon -->
+    <Icon Id="BrowserRedirector.exe" SourceFile="BrowserRedirector.exe" />
+    <Property Id="ARPPRODUCTICON" Value="BrowserRedirector.exe" />
+
     <!-- License Agreement -->
     <WixVariable Id="WixUILicenseRtf" Value="EULA.rtf" />
     
@@ -186,9 +190,9 @@
       <!-- Add all your application files here -->
       <Component Id="MainExecutable" Guid="*" Win64="$(var.IsX64)">
         <File Id="BrowserRedirectorEXE" Source="BrowserRedirector.exe" KeyPath="yes">
-          <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" 
-                    Name="Browser Redirector" WorkingDirectory="INSTALLFOLDER" 
-                    Advertise="yes" />
+          <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder"
+                    Name="Browser Redirector" WorkingDirectory="INSTALLFOLDER"
+                    Icon="BrowserRedirector.exe" IconIndex="0" Advertise="yes" />
         </File>
       </Component>
       <!-- Add other files here as needed -->
